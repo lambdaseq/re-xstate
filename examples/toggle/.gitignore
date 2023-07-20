@@ -8,7 +8,7 @@
 /*-init.clj
 /*.log
 /.nrepl-port
-
+.idea/
 # Project files
 /node_modules/
 /out/
