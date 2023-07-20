@@ -28,3 +28,4 @@
 /target
 /cljs-test-runner-out
 /node_modules/
+*.iml
