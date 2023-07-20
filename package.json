@@ -1,0 +1,11 @@
+{
+  "name": "re-xstate",
+  "version": "0.1.0",
+  "description": "Thin re-frame wrapper over XState",
+  "author": "Nikolas Pafitis",
+  "license": "ISC",
+  "devDependencies": {
+    "shadow-cljs": "2.24.0",
+    "xstate": "4.38.0"
+  }
+}

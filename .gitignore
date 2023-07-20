@@ -27,6 +27,4 @@
 /classes
 /target
 /cljs-test-runner-out
-
-/.idea/
 /node_modules/

@@ -1,0 +1,14 @@
+{:min-bb-version "1.0.170"
+ :tasks          {:requires   ([babashka.fs :as fs])
+
+                  clean       (do
+                                (fs/delete-tree "cljs-test-runner-out")
+                                (println "Removed cljs-test-runner-out directory.")
+                                (fs/delete-tree "target")
+                                (println "Removed target directory."))
+
+                  tests       (clojure "-T:build test")
+
+                  watch-tests (clojure "-T:build watch-test")
+
+                  ci          (clojure "-T:build ci")}}
