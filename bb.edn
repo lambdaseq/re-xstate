@@ -11,4 +11,6 @@
 
                   watch-tests (clojure "-T:build watch-test")
 
-                  ci          (clojure "-T:build ci")}}
+                  ci          (clojure "-T:build ci")
+
+                  deploy      (clojure "-T:build deploy")}}
