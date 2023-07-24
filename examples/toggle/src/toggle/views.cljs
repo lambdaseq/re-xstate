@@ -3,7 +3,7 @@
             [drbuchkov.re-xstate.core :as rxs]))
 
 (defn main []
-  (let [{:keys [value] :as state} (<sub [::rxs/state-machine-state :toggle-state-machine])]
+  (let [{:keys [value] :as state} (<sub [::rxs/sm-state :toggle-state-machine])]
     [:<>
      [:header
       [:h1 "Example using re-xstate"]

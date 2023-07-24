@@ -2,87 +2,130 @@
   (:require [re-frame.core :as rf]
             ["xstate" :as xs]))
 
-(defn get-state-machine
-  [db [_ state-machine-id]]
-  (get-in db [::state-machines state-machine-id]))
+(defn get-fsm
+  "Returns the FSM by id from db."
+  [db [_ fsm-id]]
+  (get-in db [::fsm fsm-id]))
 
 (rf/reg-sub
-  ::state-machine
-  get-state-machine)
+  ::fsm
+  get-fsm)
 
-(defn get-state-machine-state [db [_ state-machine-id]]
+(defn get-fsm-state
+  "Returns the current state as a js object (returned by XState) of the FSM from db."
+  [db [_ fsm-id]]
   (-> db
-      (get-state-machine [_ state-machine-id])
+      (get-fsm [_ fsm-id])
       :state))
 
 (rf/reg-sub
-  ::state-machine-state
-  get-state-machine-state)
+  ::fsm-state
+  get-fsm-state)
 
+(defn normalize-actions
+  "Normalizes the actions by converting the type to a keyword."
+  [actions]
+  (->> actions
+       (map #(-> %
+                 (update :type keyword)))))
 
-(defn get-state-machine-config [db [_ state-machine-id]]
+(defn xstate-state->clj
+  "Returns the xstate state object as a clojure map."
+  [state]
+  (-> state
+      (js/JSON.stringify)
+      (js/JSON.parse)
+      (js->clj :keywordize-keys true)
+      (update :value keyword)
+      (update :actions normalize-actions)))
+
+(defn get-fsm-state-map
+  "Returns the current state as a clojure map from db."
+  [db [_ fsm-id]]
   (-> db
-      (get-state-machine [_ state-machine-id])
+      (get-fsm-state [_ fsm-id])
+      (xstate-state->clj)))
+
+(rf/reg-sub
+  ::fsm-state-map
+  get-fsm-state-map)
+
+
+(defn get-fsm-config
+  "Returns the config of the FSM from db."
+  [db [_ fsm-id]]
+  (-> db
+      (get-fsm [_ fsm-id])
       :config))
 
 (rf/reg-sub
-  ::state-machine-configuration
-  get-state-machine-config)
+  ::fsm-config
+  get-fsm-config)
 
 
-(defn get-state-machine-actor [db [_ state-machine-id]]
+(defn get-fsm-actor
+  "Returns the xstate actor of the FSM from db."
+  [db [_ fsm-id]]
   (-> db
-      (get-state-machine [_ state-machine-id])
+      (get-fsm [_ fsm-id])
       :actor))
 
 (rf/reg-sub
-  ::state-machine-actor
-  get-state-machine-actor)
+  ::fsm-actor
+  get-fsm-actor)
 
-(defn get-state-machine-machine [db [_ state-machine-id]]
+(defn get-fsm-machine
+  "Returns the xstate machine of the FSM from db."
+  [db [_ fsm-id]]
   (-> db
-      (get-state-machine [_ state-machine-id])
+      (get-fsm [_ fsm-id])
       :machine))
 
 (rf/reg-sub
-  ::state-machine-machine
-  get-state-machine-machine)
+  ::fsm-machine
+  get-fsm-machine)
 
-(defn initialize-state-machine [{:keys [db]} [{:keys [id] :as state-machine-config}]]
-  (let [machine (xs/createMachine (clj->js state-machine-config))
+(defn initialize-fsm
+  "Initializes the FSM and updates the db with the FSM map."
+  [{:keys [db]} [{:keys [id] :as fsm-config} options]]
+  (let [machine (xs/createMachine (-> fsm-config
+                                      (assoc :predictableActionArguments true)
+                                      (clj->js))
+                                  (-> options
+                                      (clj->js)))
         actor (xs/interpret machine)
-        state-machine {:machine machine
-                       :actor   actor
-                       :config  state-machine-config}]
-    {:db (assoc-in db [::state-machines id] state-machine)
-     :fx [[::actor-subscribe! state-machine]
-          [::actor-start! state-machine]]}))
+        fsm {:machine machine
+             :actor   actor
+             :config  fsm-config}]
+    {:db (assoc-in db [::fsm id] fsm)
+     :fx [[::actor-subscribe! fsm]
+          [::actor-start! fsm]]}))
 
 (rf/reg-event-fx
-  ::initialize-state-machine
+  ::initialize-fsm
   [rf/trim-v]
-  initialize-state-machine)
+  initialize-fsm)
 
-(defn update-state [{:keys [db]} [state-machine-id state]]
+(defn update-state
+  "Updates the state of the FSM in the db.
+   Dispatches action events on transition if any."
+  [{:keys [db]} [fsm-id state]]
   {:db (-> db
-           (assoc-in [::state-machines state-machine-id :state] state))})
+           (assoc-in [::fsm fsm-id :state] state))})
 
 (rf/reg-event-fx
   ::update-state
   [rf/trim-v]
   update-state)
 
-(defn on-state [state-machine-id]
+(defn on-state
+  "Xstate actor subscribe listener, dispatches `::update-state` event"
+  [fsm-id]
   (fn [new-state]
-    (js/console.log new-state)
-    (let [new-state (-> new-state
-                        (js/JSON.stringify)
-                        (js/JSON.parse)
-                        (js->clj :keywordize-keys true)
-                        (update :value keyword))]
-      (rf/dispatch [::update-state state-machine-id new-state]))))
+    (rf/dispatch [::update-state fsm-id new-state])))
 
 (defn actor-subscribe!
+  "Adds a listener to the actor to listen to state changes."
   [{:keys        [actor]
     {:keys [id]} :config}]
   (doto actor
@@ -93,6 +136,7 @@
   actor-subscribe!)
 
 (defn actor-start!
+  "Starts xstate actor."
   [{:keys [actor]}]
   (doto actor
     (.start)))
@@ -101,7 +145,9 @@
   ::actor-start!
   actor-start!)
 
-(defn actor-send! [[actor message]]
+(defn actor-send!
+  "Sends message to xstate actor"
+  [[actor message]]
   (-> actor
       (.send (clj->js message))))
 
@@ -109,8 +155,10 @@
   ::actor-send!
   actor-send!)
 
-(defn send [{:keys [db]} [state-machine-id message]]
-  (let [actor (get-in db [::state-machines state-machine-id :actor])]
+(defn send
+  "Dispatches an effect to send a message to an xstate actor"
+  [{:keys [db]} [fsm-id message]]
+  (let [actor (get-in db [::fsm fsm-id :actor])]
     {:fx [[::actor-send! [actor message]]]}))
 
 (rf/reg-event-fx
@@ -118,9 +166,11 @@
   [rf/trim-v]
   send)
 
-(defn transition [db [_ state-machine-id state message]]
+(defn transition
+  "Returns the new state given app-db, fsm-id, current state, and message"
+  [db [_ fsm-id state message]]
   (-> db
-      (get-state-machine-machine [nil state-machine-id])
+      (get-fsm-machine [nil fsm-id])
       (.transition state message)))
 
 (rf/reg-sub

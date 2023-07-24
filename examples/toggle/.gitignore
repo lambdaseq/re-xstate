@@ -9,6 +9,7 @@
 /*.log
 /.nrepl-port
 .idea/
+*.iml
 # Project files
 /node_modules/
 /out/
