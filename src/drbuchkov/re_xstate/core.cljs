@@ -96,9 +96,11 @@
         actor (xs/interpret machine)
         fsm {:machine machine
              :actor   actor
-             :config  fsm-config}]
+             :config  fsm-config}
+        existing-actor (get-fsm-actor db [nil id])]
     {:db (assoc-in db [::fsm id] fsm)
-     :fx [[::actor-subscribe! fsm]
+     :fx [[::actor-stop! existing-actor]
+          [::actor-subscribe! fsm]
           [::actor-start! fsm]]}))
 
 (rf/reg-event-fx
@@ -134,6 +136,16 @@
 (rf/reg-fx
   ::actor-subscribe!
   actor-subscribe!)
+
+(defn actor-stop!
+  "Stops xstate actor."
+  [actor]
+  (doto actor
+    (.stop)))
+
+(rf/reg-fx
+  ::actor-stop!
+  actor-stop!)
 
 (defn actor-start!
   "Starts xstate actor."
