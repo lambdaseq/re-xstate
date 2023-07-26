@@ -140,8 +140,8 @@
 (defn actor-stop!
   "Stops xstate actor."
   [actor]
-  (doto actor
-    (.stop)))
+  (some-> actor
+          (doto (.stop))))
 
 (rf/reg-fx
   ::actor-stop!
