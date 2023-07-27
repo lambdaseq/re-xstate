@@ -1,5 +1,6 @@
 (ns drbuchkov.re-xstate.core
-  (:require [re-frame.core :as rf]
+  (:require [applied-science.js-interop :as j]
+            [re-frame.core :as rf]
             ["xstate" :as xs]))
 
 (defn get-fsm
@@ -22,6 +23,17 @@
   ::fsm-state
   get-fsm-state)
 
+(defn get-fsm-context
+  "Returns the context of the FSM from db."
+  [db [_ fsm-id]]
+  (-> db
+      (get-fsm [_ fsm-id])
+      :context))
+
+(rf/reg-sub
+  ::fsm-context
+  get-fsm-context)
+
 (defn normalize-actions
   "Normalizes the actions by converting the type to a keyword."
   [actions]
@@ -32,12 +44,15 @@
 (defn xstate-state->clj
   "Returns the xstate state object as a clojure map."
   [state]
-  (-> state
-      (js/JSON.stringify)
-      (js/JSON.parse)
-      (js->clj :keywordize-keys true)
-      (update :value keyword)
-      (update :actions normalize-actions)))
+  (let [context (j/get state :context)
+        state (j/assoc! state :context nil)]
+    (some-> state
+            (js/JSON.stringify)
+            (js/JSON.parse)
+            (js->clj :keywordize-keys true)
+            (update :value keyword)
+            (update :actions normalize-actions)
+            (assoc :context context))))
 
 (defn get-fsm-state-map
   "Returns the current state as a clojure map from db."
@@ -85,18 +100,42 @@
   ::fsm-machine
   get-fsm-machine)
 
+(defn evt->clj [evt]
+  (-> evt
+      (js->clj :keywordize-keys true)
+      (update :type keyword)
+      (update :fsm-id keyword)))
+
+(defn- -preprocess-fsm-config [fsm-config]
+  (-> fsm-config
+      (assoc :predictableActionArguments true)
+      (dissoc :context)
+      (clj->js)))
+
+(defn wrap-ctx-action [action-fn]
+  (fn [_ evt]
+    (rf/dispatch [::update-context (evt->clj evt) action-fn])))
+
+(defn wrap-effectful-action [action-fn]
+  (fn [_ evt]
+    (rf/dispatch [::run-effectful-action (evt->clj evt) action-fn])))
+
+(defn- -preprocess-fsm-options [fsm-options]
+  (-> fsm-options
+      (clj->js)))
+
 (defn initialize-fsm
   "Initializes the FSM and updates the db with the FSM map."
-  [{:keys [db]} [{:keys [id] :as fsm-config} options]]
+  [{:keys [db]} [{:keys [id context] :as fsm-config} fsm-options]]
   (let [machine (xs/createMachine (-> fsm-config
-                                      (assoc :predictableActionArguments true)
-                                      (clj->js))
-                                  (-> options
-                                      (clj->js)))
+                                      (-preprocess-fsm-config))
+                                  (-> fsm-options
+                                      (-preprocess-fsm-options)))
         actor (xs/interpret machine)
         fsm {:machine machine
              :actor   actor
-             :config  fsm-config}
+             :config  fsm-config
+             :context context}
         existing-actor (get-fsm-actor db [nil id])]
     {:db (assoc-in db [::fsm id] fsm)
      :fx [[::actor-stop! existing-actor]
@@ -112,13 +151,36 @@
   "Updates the state of the FSM in the db.
    Dispatches action events on transition if any."
   [{:keys [db]} [fsm-id state]]
-  {:db (-> db
-           (assoc-in [::fsm fsm-id :state] state))})
+  {:db (-> db (assoc-in [::fsm fsm-id :state] state))})
 
 (rf/reg-event-fx
   ::update-state
   [rf/trim-v]
   update-state)
+
+(defn update-context
+  "Updates the context of the FSM in the db."
+  [{:keys [db]} [{:keys [fsm-id] :as evt} action-fn]]
+  (let [ctx (get-fsm-context db [nil fsm-id])
+        new-ctx (action-fn ctx evt)]
+    {:db (-> db
+             (assoc-in [::fsm fsm-id :context] new-ctx))}))
+(rf/reg-event-fx
+  ::update-context
+  [rf/trim-v]
+  update-context)
+
+(rf/reg-fx
+  ::run-effectful-action!
+  (fn [[action-fn ctx evt]]
+    (action-fn ctx evt)))
+
+(rf/reg-event-fx
+  ::run-effectful-action
+  [rf/trim-v]
+  (fn [{:keys [db]} [{:keys [fsm-id] :as evt} action-fn]]
+    (let [ctx (get-fsm-context db [nil fsm-id])]
+      {:fx [[::run-effectful-action! [action-fn ctx evt]]]})))
 
 (defn on-state
   "Xstate actor subscribe listener, dispatches `::update-state` event"
@@ -171,7 +233,7 @@
   "Dispatches an effect to send a message to an xstate actor"
   [{:keys [db]} [fsm-id message]]
   (let [actor (get-in db [::fsm fsm-id :actor])]
-    {:fx [[::actor-send! [actor message]]]}))
+    {:fx [[::actor-send! [actor (assoc message :fsm-id fsm-id)]]]}))
 
 (rf/reg-event-fx
   ::send

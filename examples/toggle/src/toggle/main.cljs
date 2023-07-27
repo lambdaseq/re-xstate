@@ -20,14 +20,26 @@
     (rdom/unmount-component-at-node root)
     (rdom/render [views/main] root)))
 
-(def toggle-state-machine
+(def toggle-state-machine-config
   {:id      :toggle-state-machine
    :initial :inactive
-   :states  {:inactive {:on {:TOGGLE :active}}
+   :context {:count 0}
+   :states  {:inactive {:on {:TOGGLE {:target  :active
+                                      :actions [:increment :log-ctx]}}}
              :active   {:on {:TOGGLE :inactive}}}})
+
+(def toggle-state-machine-options
+  {:actions {:increment (rxs/wrap-ctx-action
+                          (fn [ctx _]
+                            (update ctx :count inc)))
+             :log-ctx   (rxs/wrap-effectful-action
+                          (fn [ctx _]
+                            #p ctx))}})
 
 (defn init []
   (>evt-now [::rf/boot])
-  (>evt-now [::rxs/initialize-state-machine toggle-state-machine])
+  (>evt-now [::rxs/initialize-fsm
+             toggle-state-machine-config
+             toggle-state-machine-options])
   (dev-setup)
   (mount-root))
