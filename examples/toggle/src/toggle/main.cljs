@@ -21,19 +21,19 @@
     (rdom/render [views/main] root)))
 
 (def toggle-state-machine-config
-  {:id      :toggle-state-machine
+  {:id      "toggle-state-machine"
    :initial :inactive
    :context {:count 0}
    :states  {:inactive {:on {:TOGGLE {:target  :active
-                                      :actions [:increment :log-ctx]}}}
+                                      :actions [:increment]}}}
              :active   {:on {:TOGGLE :inactive}}}})
 
 (def toggle-state-machine-options
   {:actions {:increment (rxs/wrap-ctx-action
-                          (fn [ctx _]
+                          (fn [{:keys [ctx] :as evt}]
                             (update ctx :count inc)))
              :log-ctx   (rxs/wrap-effectful-action
-                          (fn [ctx _]
+                          (fn [{:keys [ctx]}]
                             #p ctx))}})
 
 (defn init []
