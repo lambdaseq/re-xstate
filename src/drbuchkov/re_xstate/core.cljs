@@ -101,7 +101,9 @@
   ::fsm-machine
   get-fsm-machine)
 
-(defn evt->edn [evt]
+(defn evt->edn
+  "Converts the xstate event object to edn."
+  [evt]
   (-> evt
       (js->clj :keywordize-keys true)
       (update :type keyword)))
@@ -112,15 +114,24 @@
       (dissoc :context)
       (clj->js)))
 
-(defn wrap-ctx-action [action-fn]
+(defn wrap-ctx-action
+  "Given a context action function, returns a 2-arity callback that can be used as an xstate action.
+   The event is converted to edn before being passed to the action function."
+  [action-fn]
   (fn [_ evt]
     (rf/dispatch [::update-context (evt->edn evt) action-fn])))
 
-(defn wrap-effectful-action [action-fn]
+(defn wrap-effectful-action
+  "Given an effectful action function, returns a 2-arity callback that can be used as an xstate action.
+   The event is converted to edn before being passed to the action function."
+  [action-fn]
   (fn [_ evt]
     (rf/dispatch [::run-effectful-action (evt->edn evt) action-fn])))
 
-(defn wrap-guard [guard-fn]
+(defn wrap-guard
+  "Given a function that takes an event and returns a boolean, returns a 2-arity callback that can be used as an xstate guard.
+   The event is converted to edn before being passed to the guard function."
+  [guard-fn]
   (fn [_ evt]
     (let [evt (evt->edn evt)]
       (guard-fn evt))))
@@ -164,7 +175,9 @@
   update-state)
 
 (defn update-context
-  "Updates the context of the FSM in the db."
+  "Given a ctx-action function and an event, updates the context of the FSM in the db.
+   This is used instead of the default xstate context updating, because the default xstate context updating
+   doesn't work with re-frame subscriptions, and converting from edn to json and back results in a loss of data."
   [{:keys [db]} [{:keys [fsm-id] :as evt} action-fn]]
   (let [new-ctx (action-fn evt)]
     {:db (-> db
@@ -174,10 +187,14 @@
   [rf/trim-v]
   update-context)
 
+(defn run-effectful-action!
+  "Runs the effectful action function, given the event."
+  [[effect evt]]
+  (effect evt))
+
 (rf/reg-fx
   ::run-effectful-action!
-  (fn [[effect evt]]
-    (effect evt)))
+  run-effectful-action!)
 
 (rf/reg-event-fx
   ::run-effectful-action
