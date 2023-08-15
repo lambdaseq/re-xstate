@@ -11,8 +11,7 @@ To include `re-xstate` in your project, add the following to your `deps.edn`:
 
 ```clojure
 {:deps
- {drbuchkov/re-xstate {:git/url "https://github.com/DrBuchkov/re-xstate"
-                       :sha     "YOUR_COMMIT_SHA"}}}
+ {io.github.drbuchkov/re-xstate {:mvn/version "0.0.9"}}}
 ```
 
 Replace `YOUR_COMMIT_SHA` with the commit SHA you want to use.

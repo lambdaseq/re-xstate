@@ -4,6 +4,7 @@
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'io.github.drbuchkov/re-xstate)
+
 (def version (b/git-process {:git-args ["describe" "--tags"]}))
 
 (def class-dir "target/classes")
