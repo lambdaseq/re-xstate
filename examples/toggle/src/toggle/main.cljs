@@ -29,10 +29,10 @@
              :active   {:on {:TOGGLE :inactive}}}})
 
 (def toggle-state-machine-options
-  {:actions {:increment (rxs/wrap-ctx-action
+  {:actions {:increment (rxs/ctx-action
                           (fn [{:keys [ctx] :as evt}]
                             (update ctx :count inc)))
-             :log-ctx   (rxs/wrap-effectful-action
+             :log-ctx   (rxs/effectful-action
                           (fn [{:keys [ctx]}]
                             #p ctx))}})
 

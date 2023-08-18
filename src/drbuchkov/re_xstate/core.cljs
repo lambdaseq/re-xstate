@@ -114,14 +114,14 @@
       (dissoc :context)
       (clj->js)))
 
-(defn wrap-ctx-action
+(defn ctx-action
   "Given a context action function, returns a 2-arity callback that can be used as an xstate action.
    The event is converted to edn before being passed to the action function."
   [action-fn]
   (fn [_ evt]
     (rf/dispatch [::update-context (evt->edn evt) action-fn])))
 
-(defn wrap-effectful-action
+(defn effectful-action
   "Given an effectful action function, returns a 2-arity callback that can be used as an xstate action.
    The event is converted to edn before being passed to the action function."
   [action-fn]
@@ -281,10 +281,10 @@
   ::transition
   transition)
 
-(defn transition-params
+(defn action-params
   "Returns the params for the given action-id in the transition-actions property that's injected from
    the `send` event into the message."
-  [action-id transition-actions]
+  [{:keys [transition-actions] :as _evt} action-id]
   (-> transition-actions
       (pt/find-first
         {:type (cond
