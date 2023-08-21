@@ -14,8 +14,6 @@ To include `re-xstate` in your project, add the following to your `deps.edn`:
  {io.github.drbuchkov/re-xstate {:mvn/version "0.0.9"}}}
 ```
 
-Replace `YOUR_COMMIT_SHA` with the commit SHA you want to use.
-
 ## Key Features
 
 - **State Management**: Define and manage application state using state machines and statecharts.
