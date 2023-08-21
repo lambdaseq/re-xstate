@@ -10,8 +10,7 @@ to JSON and vice versa, which can lead to loss of information.
 To include `re-xstate` in your project, add the following to your `deps.edn`:
 
 ```clojure
-{:deps
- {io.github.drbuchkov/re-xstate {:mvn/version "0.0.9"}}}
+io.github.drbuchkov/re-xstate {:mvn/version "0.0.11"}
 ```
 
 ## Key Features
