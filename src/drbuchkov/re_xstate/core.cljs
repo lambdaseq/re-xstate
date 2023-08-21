@@ -128,7 +128,7 @@
   (fn [_ evt]
     (rf/dispatch [::run-effectful-action (evt->edn evt) action-fn])))
 
-(defn wrap-guard
+(defn guard
   "Given a function that takes an event and returns a boolean, returns a 2-arity callback that can be used as an xstate guard.
    The event is converted to edn before being passed to the guard function."
   [guard-fn]

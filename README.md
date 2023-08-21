@@ -44,11 +44,11 @@ To include `re-xstate` in your project, add the following to your `deps.edn`:
 
 ### Core Functions:
 
-- `wrap-ctx-action`: Given a context action function, returns a 2-arity callback that can be used as an xstate action.
+- `ctx-action`: Given a context action function, returns a 2-arity callback that can be used as an xstate action.
   The event is converted to edn before being passed to the action function.
-- `wrap-effectful-action`: Given an effectful action function, returns a 2-arity callback that can be used as an
+- `effectful-action`: Given an effectful action function, returns a 2-arity callback that can be used as an
   xstate action. The event is converted to edn before being passed to the action function.
-- `wrap-guard`: Given a guard function, returns a 2-arity callback that can be used as an xstate guard. The event is
+- `guard`: Given a guard function, returns a 2-arity callback that can be used as an xstate guard. The event is
   converted to edn before being passed to the guard function.
 
 ## Examples
@@ -69,6 +69,7 @@ Here's a simple example from the `/examples` folder showcasing a toggle function
 **Machine Configuration:**
 
 ```clojure
+
 (def toggle-state-machine-config
   {:id      "toggle-state-machine"
    :initial :inactive
@@ -78,10 +79,10 @@ Here's a simple example from the `/examples` folder showcasing a toggle function
              :active   {:on {:TOGGLE :inactive}}}})
 
 (def toggle-state-machine-options
-  {:actions {:increment (rxs/wrap-ctx-action
+  {:actions {:increment (rxs/ctx-action
                           (fn [{:keys [ctx] :as evt}]
                             (update ctx :count inc)))
-             :log-ctx   (rxs/wrap-effectful-action
+             :log-ctx   (rxs/effectful-action
                           (fn [{:keys [ctx]}]
                             #p ctx))}})
 ```
